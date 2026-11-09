@@ -67,15 +67,7 @@ No account. No cloud upload. No license server. Your geometry never leaves your 
 > **Scope note:** this project only *poses* geometry. It does not heal topology, stitch gaps or rebuild surfaces — alignment and rigid/similarity transforms, nothing else.
 
 ---
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="docs/screenshot-cyberpunk.png" alt="Web-STEP-Aligner — neon wireframe viewport with live transform panel" width="900">
-</p>
-
-<p align="center"><i>Neon-edge viewport, live transform panel, and the transform receipt strip — everything on one page.</i></p>
-
+<img width="1882" height="892" alt="Image" src="https://github.com/user-attachments/assets/68c3e2e3-e587-4518-b645-61dce6539991" />
 <!--
   ⬆️ TODO（留给你自己填）：把赛博朋克风格截图放到 docs/screenshot-cyberpunk.png
   建议构图：左 2/3 是黑底 + 青/品红发光边线的三维视口，右 1/3 是暗紫色玻璃拟态控制面板，
