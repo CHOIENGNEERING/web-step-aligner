@@ -159,36 +159,37 @@ def build_figure(mesh: ac.Mesh, highlight: set[int] | None = None,
 # ======================================================================================
 # KPI / matrix rendering
 # ======================================================================================
-def kpi_block(mesh: ac.Mesh, project: ac.Project | None = None) -> list:
+def kpi_block(mesh: ac.Mesh, project: ac.Project | None = None, lang: str | None = None) -> list:
     bb = mesh.bbox()
     size = bb["size"]
     vol = mesh.volume()
     cen = bb["center"]
     u = mesh.unit_label
     face_count = len({f.get("face_index") for f in mesh.faces}) or len(mesh.faces)
+    # 标签带固定 id：切语言时只改这些 span 的文字，数值一格不动。
     items = [
-        ("包围盒 X×Y×Z", f"{size[0]:.3f} × {size[1]:.3f} × {size[2]:.3f} {u}"),
-        ("体积", f"{vol:,.1f} {u}³"),
-        ("包围盒中心", f"({cen[0]:+.3f}, {cen[1]:+.3f}, {cen[2]:+.3f})"),
-        ("BREP 面 / 三角片", f"{face_count} / {len(mesh.T):,}"),
+        ("kpi_k_bbox", tr(lang, "kpi_bbox"), f"{size[0]:.3f} × {size[1]:.3f} × {size[2]:.3f} {u}"),
+        ("kpi_k_vol", tr(lang, "kpi_vol"), f"{vol:,.1f} {u}³"),
+        ("kpi_k_center", tr(lang, "kpi_center"), f"({cen[0]:+.3f}, {cen[1]:+.3f}, {cen[2]:+.3f})"),
+        ("kpi_k_faces", tr(lang, "kpi_faces"), f"{face_count} / {len(mesh.T):,}"),
     ]
     if project is not None:
-        items.append(("文件", project.name))
+        items.append(("kpi_k_file", tr(lang, "kpi_file"), project.name))
     out = []
-    for k, v in items:
-        cls = "kpi kpi-center" if k == "包围盒中心" else "kpi"
-        out.append(html.Div([html.Div(k, className="kpi-k"), html.Div(v, className="kpi-v")],
+    for kid, k, v in items:
+        cls = "kpi kpi-center" if kid == "kpi_k_center" else "kpi"
+        out.append(html.Div([html.Div(k, id=kid, className="kpi-k"), html.Div(v, className="kpi-v")],
                             className=cls))
     return out
 
 
-def matrix_block(tf: ac.Transform, unit: str) -> list:
+def matrix_block(tf: ac.Transform, unit: str, lang: str | None = None) -> list:
     m = tf.matrix4()
     rows = []
     for r in m:
         rows.append(html.Div("  ".join(f"{v:+11.5f}" for v in r), className="mx-row"))
     return [
-        html.Div("变换矩阵  p' = M · p", className="mx-title"),
+        html.Div(tr(lang, "mx_title"), id="mx_title", className="mx-title"),
         html.Div(rows, className="mx"),
         html.Div(f"scale = {tf.s:.6g}   |   |t| = {float(np.linalg.norm(tf.t)):.4f} {unit}",
                  className="mx-foot"),
@@ -197,6 +198,197 @@ def matrix_block(tf: ac.Transform, unit: str) -> list:
 
 def alert(msg: str, kind: str = "info") -> html.Div:
     return html.Div(msg, className=f"alert alert-{kind}")
+
+
+# ======================================================================================
+# i18n —— 只做文字，不碰几何 / 相机 / 变换
+# ======================================================================================
+LANGS = ("en", "zh")
+DEFAULT_LANG = "en"
+
+TRANSLATIONS: dict[str, dict[str, str]] = {
+    "en": {
+        "title": "Web-STEP-Aligner",
+        "expert": "Expert mode",
+        "simple_hint": "Click “Auto Align”, or drag the sliders to fine-tune",
+        "dz_main": "⬇  Drop a STEP / STP file  (or click to browse)",
+        "dz_sub": "AP203 / AP214 / AP242 · {mb:.0f} MB limit · files never leave this machine",
+        "sample_box": "Sample · Box",
+        "sample_l": "Sample · L-Bracket",
+        "panel_title": "Position",
+        "btn_auto_simple": "◈ Auto Align",
+        "tip_auto": "Computes the part's principal inertia axes and places it flat, centred at the origin.",
+        "hint_principle": "⚙ How it works: longest edge → X axis, thinnest face flat on XY (Z up), centre goes to zero.",
+        "lbl_translate": "Translate · X / Y / Z",
+        "hint_pct": "100 % = half the bounding-box size",
+        "lbl_rotate": "Rotate · X / Y / Z  (° · any angle)",
+        "hint_inc90": "Increment 90°",
+        "hint_inc180": "Increment 180°",
+        "btn_reset_rot": "⟲ Reset rotation",
+        "hint_norm": "Angles beyond ±180° are wrapped modulo 360° (450° → 90°, 200° → -160°), "
+                     "so the transform matrix always stays in a safe range.",
+        "lbl_scale": "Uniform scale",
+        "hint_scale": "Rotates / scales about the bounding-box centre; sliders apply on release (180 ms debounce).",
+        "lbl_mode": "Alignment mode",
+        "mode_principal": "Principal inertia / min. bounding box",
+        "mode_face": "Face → face",
+        "mode_axis": "Face → axis",
+        "mode_euler": "Euler / translate / scale",
+        "mode_center": "Centre only",
+        "btn_auto": "▸ Auto align (one click)",
+        "hint_auto": "PCA + minimum bounding-box search → longest axis to X, thinnest to Z, bbox centre to origin.",
+        "lbl_snap": "Faces (source → target, normals opposed)",
+        "ph_from": "Source face …",
+        "ph_to": "Target face …",
+        "btn_snap": "▸ Snap faces",
+        "hint_snap": "Turns the source normal opposite to the target normal, then puts the two planes together.",
+        "lbl_axis": "Snap a face to an axis",
+        "ph_axis": "Pick a planar face …",
+        "axis_opt": "Normal → {a} face",
+        "btn_axis": "▸ Snap to datum",
+        "hint_axis": "3-2-1 style datum: the picked face's normal is aligned to -axis, then dropped onto the 0 plane.",
+        "lbl_euler": "Euler angles (°)",
+        "order_xyz": "Order XYZ",
+        "order_zyx": "Order ZYX",
+        "lbl_translate_exp": "Translate",
+        "lbl_scale_exp": "Uniform scale",
+        "btn_euler": "▸ Apply absolute pose",
+        "hint_euler": "1.0 keeps the size; 25.4 = in→mm; 0.001 = mm→m. Uniform scale also scales radii.",
+        "lbl_center": "Centring",
+        "center_bbox": "Bounding-box centre",
+        "center_mass": "Centroid (area-weighted)",
+        "btn_center": "▸ Centre",
+        "lbl_hl": "Highlight / picking",
+        "ph_hl": "Highlight a face …",
+        "btn_dl_step": "⤓ Download STEP",
+        "btn_dl_rcpt": "⤓ Download receipt (JSON)",
+        "btn_reset": "↺ Reset all transforms",
+        "footnote": "Workflow: upload → auto align → fine-tune if needed → download. The exported STEP bakes the "
+                    "transform into the geometry entities, so downstream CAM / CAE cannot ignore it.",
+        "kpi_bbox": "Bounding box X×Y×Z",
+        "kpi_vol": "Volume",
+        "kpi_center": "Bbox centre",
+        "kpi_faces": "BREP faces / triangles",
+        "kpi_file": "File",
+        "mx_title": "Transform matrix  p' = M · p",
+        # ---- dynamic messages ----
+        "no_file": "No file content received",
+        "too_big": "File exceeds the {mb:.0f} MB limit",
+        "loaded": "{name} loaded · {tris:,} triangles · parsed in {dt:.2f}s · sid {sid}",
+        "upload_first": "Upload a STEP file first",
+        "session_expired": "Session expired ({err}); please upload again",
+        "aligned_best": "✅ Aligned to the best view (longest edge → X, thinnest face → Z) · bbox {size}",
+        "pick_faces": "Pick a source face and a target face first",
+        "snapped": "Face → face snap done",
+        "pick_plane": "Pick a planar face first",
+        "axis_done": "Face snapped to the datum plane",
+        "euler_done": "Absolute pose applied · R{order} · s={s:g}",
+        "centered": "Centred",
+        "reset_done": "Reset to the original pose",
+        "mode_switched": "Alignment mode switched",
+        "op_failed": "Operation failed: {err}",
+        "render_failed": "Render failed: {err}",
+        "simple_adjust": "Slider fine-tune · translate ({tx:+.2f}, {ty:+.2f}, {tz:+.2f}) {unit} · "
+                         "rotate ({rx:.0f}, {ry:.0f}, {rz:.0f})° · scale {sc:.3f}",
+        "aligned_simple": "✅ Aligned to the best view (longest edge → X, thinnest face → Z) · fine-tune with the sliders",
+        "parse_fail": "❌ Model parse failed: geometry too complex or has broken faces",
+    },
+    "zh": {
+        "title": "网页版 STEP 摆正器",
+        "expert": "专家模式",
+        "simple_hint": "只需点击「一键摆正」，或拖动滑块微调即可",
+        "dz_main": "⬇  拖入 STEP / STP 文件  （或点击选择）",
+        "dz_sub": "AP203 / AP214 / AP242 · 上限 {mb:.0f} MB · 文件不离开本机",
+        "sample_box": "载入示例 · 方块",
+        "sample_l": "载入示例 · L 支架",
+        "panel_title": "位姿控制",
+        "btn_auto_simple": "◈ 一键摆正（自动）",
+        "tip_auto": "将自动计算零件的主惯性轴，把零件平稳地放置在坐标系正中心。",
+        "hint_principle": "⚙ 摆正原理：最长边对齐 X 轴，最薄面平放于 XY 平面（Z 轴朝上），中心点归零。",
+        "lbl_translate": "平移 · X / Y / Z",
+        "hint_pct": "100 % = 半个包围盒尺寸",
+        "lbl_rotate": "旋转 · X / Y / Z  (° · 可输入任意角度)",
+        "hint_inc90": "增量旋转 90°",
+        "hint_inc180": "增量翻转 180°",
+        "btn_reset_rot": "⟲ 归零  (Reset Rotation)",
+        "hint_norm": "超出 ±180° 会按 360° 求余归一化（450° → 90°，200° → -160°），保证底层变换矩阵永远在安全范围。",
+        "lbl_scale": "等比缩放",
+        "hint_scale": "绕包围盒中心旋转/缩放，滑块松手才生效（防抖 180 ms）。",
+        "lbl_mode": "对齐模式",
+        "mode_principal": "主惯性 / 最小包围盒",
+        "mode_face": "面 → 面 贴合",
+        "mode_axis": "单面 → 轴向",
+        "mode_euler": "欧拉角 / 平移 / 缩放",
+        "mode_center": "仅居中",
+        "btn_auto": "▸ 自动摆正（一键）",
+        "hint_auto": "PCA + 最小包围盒搜索 → 最长轴对 X，最薄轴对 Z，包围盒中心归零。",
+        "lbl_snap": "贴合面（源 → 目标，法向相对）",
+        "ph_from": "源面 …",
+        "ph_to": "目标面 …",
+        "btn_snap": "▸ 面贴合",
+        "hint_snap": "把源面的法向转到与目标面法向相对，再把两个平面贴到一起。",
+        "lbl_axis": "把面摆到坐标轴",
+        "ph_axis": "选一个平面 …",
+        "axis_opt": "法向落到 {a}-Z 面",
+        "btn_axis": "▸ 贴到基准面",
+        "hint_axis": "仿 3-2-1 基准：选定面的法向对齐到 -轴向，再落到该轴向的 0 平面。",
+        "lbl_euler": "欧拉角 (°)",
+        "order_xyz": "顺序 XYZ",
+        "order_zyx": "顺序 ZYX",
+        "lbl_translate_exp": "平移",
+        "lbl_scale_exp": "等比缩放",
+        "btn_euler": "▸ 应用绝对位姿",
+        "hint_euler": "1.0 保持；25.4 = in→mm；0.001 = mm→m。等比缩放会同步缩放半径。",
+        "lbl_center": "居中方式",
+        "center_bbox": "包围盒中心",
+        "center_mass": "质心（面积加权）",
+        "btn_center": "▸ 归零",
+        "lbl_hl": "高亮 / 拾取",
+        "ph_hl": "高亮某个平面 …",
+        "btn_dl_step": "⤓ 下载 STEP",
+        "btn_dl_rcpt": "⤓ 下载回执 JSON",
+        "btn_reset": "↺ 撤销全部变换（复位）",
+        "footnote": "用法：上传 → 自动摆正 → 需要时微调 → 下载。导出的 STEP 是把变换烘进几何实体的，下游 CAM / CAE 不会忽略。",
+        "kpi_bbox": "包围盒 X×Y×Z",
+        "kpi_vol": "体积",
+        "kpi_center": "包围盒中心",
+        "kpi_faces": "BREP 面 / 三角片",
+        "kpi_file": "文件",
+        "mx_title": "变换矩阵  p' = M · p",
+        "no_file": "没有读到文件内容",
+        "too_big": "文件超过 {mb:.0f} MB 上限",
+        "loaded": "{name} 已载入 · {tris:,} 三角片 · 解析 {dt:.2f}s · sid {sid}",
+        "upload_first": "先上传一个 STEP 文件",
+        "session_expired": "会话已失效（{err}），请重新上传",
+        "aligned_best": "✅ 已对齐至最佳视角（最长边 → X，最薄面 → Z）· 包围盒 {size}",
+        "pick_faces": "请先选择源面和目标面",
+        "snapped": "已完成面→面贴合",
+        "pick_plane": "请先选择一个平面",
+        "axis_done": "已把该面贴到基准面",
+        "euler_done": "已应用绝对位姿 · R{order} · s={s:g}",
+        "centered": "已居中",
+        "reset_done": "已复位到原始位姿",
+        "mode_switched": "切换对齐模式",
+        "op_failed": "操作失败：{err}",
+        "render_failed": "渲染失败：{err}",
+        "simple_adjust": "滑块微调 · 平移 ({tx:+.2f}, {ty:+.2f}, {tz:+.2f}) {unit} · "
+                         "旋转 ({rx:.0f}, {ry:.0f}, {rz:.0f})° · 缩放 {sc:.3f}",
+        "aligned_simple": "✅ 已对齐至最佳视角（最长边 → X，最薄面 → Z）· 现在只用滑块微调即可",
+        "parse_fail": "❌ 模型解析失败：几何体过于复杂或包含破面",
+    },
+}
+
+
+def tr(lang: str | None, key: str, **kw) -> str:
+    """取当前语言的字符串。未知 key / 语言都退回英文，绝不因为翻译缺词而崩。"""
+    table = TRANSLATIONS.get(lang or DEFAULT_LANG) or TRANSLATIONS[DEFAULT_LANG]
+    text = table.get(key) or TRANSLATIONS[DEFAULT_LANG].get(key, key)
+    if kw:
+        try:
+            return text.format(**kw)
+        except (KeyError, IndexError, ValueError):
+            return text
+    return text
 
 
 def _slider_row(id_: str, label: str, lo: float, hi: float, step: float,
@@ -230,13 +422,15 @@ def _rot_row(id_: str, label: str) -> html.Div:
 # ======================================================================================
 # App
 # ======================================================================================
-app = Dash(__name__, title="Web-STEP-Aligner", update_title=None, suppress_callback_exceptions=True)
+L0 = DEFAULT_LANG   # 首屏语言（英文，面向开源）
+app = Dash(__name__, title=tr(L0, "title"), update_title=None, suppress_callback_exceptions=True)
 server = app.server
 app.layout = html.Div([
     dcc.Store(id="sid"),
     dcc.Store(id="sbase"),      # 小白模式的基准位姿（滑块的坐标系原点）
     dcc.Store(id="sdeb"),       # 滑块防抖后的值
     dcc.Store(id="rot_mirror"), # 旋转滑块 → 数字框 的镜像通道（不用 Output 直接写，避免回调成环）
+    dcc.Store(id="lang_echo"),  # 只为给 clientside 一个 Output（改 document.title）
     dcc.Download(id="dl"),
     html.Div([
         html.Div([
@@ -249,9 +443,14 @@ app.layout = html.Div([
         ], className="badge"),
         html.Div([
             dcc.Checklist(id="expert", className="expert-switch", value=[],
-                          options=[{"label": "专家模式", "value": "on"}]),
+                          options=[{"label": tr(L0, "expert"), "value": "on"}]),
         ], className="expert-wrap"),
         html.Div(f"127.0.0.1:{PORT}", className="port"),
+        html.Div([
+            dcc.RadioItems(id="lang_sel", className="expert-switch lang-switch",
+                           options=[{"label": "EN", "value": "en"}, {"label": "中文", "value": "zh"}],
+                           value=L0),
+        ], className="lang-wrap"),
     ], className="topbar"),
 
     html.Div([
@@ -262,155 +461,148 @@ app.layout = html.Div([
                       config={"displaylogo": False, "scrollZoom": True,
                               "modeBarButtonsToRemove": ["toImage", "resetCameraLastSave3d"]},
                       className="graph"),
-            html.Div("只需点击「一键摆正」，或拖动滑块微调即可",
-                     id="simple_hint", className="simple-hint"),
+            html.Div(tr(L0, "simple_hint"), id="simple_hint", className="simple-hint"),
             html.Div(id="kpis", className="kpis"),
             html.Div(id="matrix", className="matrix"),
             dcc.Upload(id="upload", className="dropzone",
                        children=html.Div([
-                           html.Div("⬇  拖入 STEP / STP 文件  （或点击选择）", className="dz-main"),
-                           html.Div(f"AP203 / AP214 / AP242 · 上限 {MAX_MB:.0f} MB · 文件不离开本机",
-                                    className="dz-sub"),
+                           html.Div(tr(L0, "dz_main"), id="dz_main", className="dz-main"),
+                           html.Div(tr(L0, "dz_sub", mb=MAX_MB), id="dz_sub", className="dz-sub"),
                        ]),
                        multiple=False),
             html.Div([
-                html.Button("载入示例 · 方块", id="btn_sample_box", className="btn ghost small"),
-                html.Button("载入示例 · L 支架", id="btn_sample_l", className="btn ghost small"),
+                html.Button(tr(L0, "sample_box"), id="btn_sample_box", className="btn ghost small"),
+                html.Button(tr(L0, "sample_l"), id="btn_sample_l", className="btn ghost small"),
             ], className="sample-row"),
         ], className="viewport"),
 
         # ---------------- control panel ----------------
         html.Div([
-            html.Div("位姿控制", className="panel-title"),
+            html.Div(tr(L0, "panel_title"), id="panel_title", className="panel-title"),
 
             # ==================== 小白模式（默认显示） ====================
             html.Div([
                 # 悬停提示：黑底白字，用 CSS ::after 画，不需要 JS
-                html.Div(html.Button("◈ 一键摆正（自动）", id="btn_auto_simple",
+                html.Div(html.Button(tr(L0, "btn_auto_simple"), id="btn_auto_simple",
                                      className="btn primary big"),
-                         className="tip",
-                         **{"data-tip": "将自动计算零件的主惯性轴，把零件平稳地放置在坐标系正中心。"}),
+                         id="tip_auto", className="tip",
+                         **{"data-tip": tr(L0, "tip_auto")}),
                 # 灰色小字：把 PCA 的原理翻译成人话
-                html.Div("⚙ 摆正原理：最长边对齐 X 轴，最薄面平放于 XY 平面（Z 轴朝上），中心点归零。",
-                         className="hint"),
+                html.Div(tr(L0, "hint_principle"), id="hint_principle", className="hint"),
 
-                html.Div("平移 · X / Y / Z", className="field-label"),
+                html.Div(tr(L0, "lbl_translate"), id="lbl_translate", className="field-label"),
                 _slider_row("px", "X", -100, 100, 1, 0, "%"),
                 _slider_row("py", "Y", -100, 100, 1, 0, "%"),
                 _slider_row("pz", "Z", -100, 100, 1, 0, "%"),
-                html.Div("100 % = 半个包围盒尺寸", className="hint"),
+                html.Div(tr(L0, "hint_pct"), id="hint_pct", className="hint"),
 
-                html.Div("旋转 · X / Y / Z  (° · 可输入任意角度)", className="field-label"),
+                html.Div(tr(L0, "lbl_rotate"), id="lbl_rotate", className="field-label"),
                 _rot_row("srx", "Rx"),
                 _rot_row("sry", "Ry"),
                 _rot_row("srz", "Rz"),
 
-                html.Div("增量旋转 90°", className="hint", style={"margin": "9px 0 5px"}),
+                html.Div(tr(L0, "hint_inc90"), id="hint_inc90", className="hint",
+                         style={"margin": "9px 0 5px"}),
                 html.Div([
                     html.Button("X +90°", id="q_x90", className="btn mini", n_clicks=0),
                     html.Button("Y +90°", id="q_y90", className="btn mini", n_clicks=0),
                     html.Button("Z +90°", id="q_z90", className="btn mini", n_clicks=0),
                 ], className="qgrid"),
-                html.Div("增量翻转 180°", className="hint", style={"margin": "0 0 5px"}),
+                html.Div(tr(L0, "hint_inc180"), id="hint_inc180", className="hint",
+                         style={"margin": "0 0 5px"}),
                 html.Div([
                     html.Button("X +180°", id="q_x180", className="btn mini", n_clicks=0),
                     html.Button("Y +180°", id="q_y180", className="btn mini", n_clicks=0),
                     html.Button("Z +180°", id="q_z180", className="btn mini", n_clicks=0),
                 ], className="qgrid"),
-                html.Button("⟲ 归零  (Reset Rotation)", id="q_reset",
+                html.Button(tr(L0, "btn_reset_rot"), id="q_reset",
                             className="btn ghost wide", n_clicks=0),
-                html.Div("超出 ±180° 会按 360° 求余归一化（450° → 90°，200° → -160°），"
-                         "保证底层变换矩阵永远在安全范围。", className="hint"),
+                html.Div(tr(L0, "hint_norm"), id="hint_norm", className="hint"),
 
-                html.Div("等比缩放", className="field-label"),
+                html.Div(tr(L0, "lbl_scale"), id="lbl_scale", className="field-label"),
                 _slider_row("ssc", "S", 20, 400, 1, 100, "%"),
-                html.Div("绕包围盒中心旋转/缩放，滑块松手才生效（防抖 180 ms）。",
-                         className="hint"),
+                html.Div(tr(L0, "hint_scale"), id="hint_scale", className="hint"),
             ], id="panel_simple"),
 
             # ==================== 专家模式（勾选后显示） ====================
             html.Div([
-            html.Div("对齐模式", className="field-label"),
+            html.Div(tr(L0, "lbl_mode"), id="lbl_mode", className="field-label"),
             dcc.RadioItems(id="mode", className="modes",
-                           options=[{"label": "主惯性 / 最小包围盒", "value": "principal"},
-                                    {"label": "面 → 面 贴合", "value": "face"},
-                                    {"label": "单面 → 轴向", "value": "axis"},
-                                    {"label": "欧拉角 / 平移 / 缩放", "value": "euler"},
-                                    {"label": "仅居中", "value": "center"}],
+                           options=[{"label": tr(L0, "mode_principal"), "value": "principal"},
+                                    {"label": tr(L0, "mode_face"), "value": "face"},
+                                    {"label": tr(L0, "mode_axis"), "value": "axis"},
+                                    {"label": tr(L0, "mode_euler"), "value": "euler"},
+                                    {"label": tr(L0, "mode_center"), "value": "center"}],
                            value="principal", labelClassName="mode-item",
                            inputClassName="mode-radio"),
 
             html.Div([
-                html.Button("▸ 自动摆正（一键）", id="btn_auto", className="btn primary big"),
-                html.Div("PCA + 最小包围盒搜索 → 最长轴对 X，最薄轴对 Z，包围盒中心归零。",
-                         className="hint"),
+                html.Button(tr(L0, "btn_auto"), id="btn_auto", className="btn primary big"),
+                html.Div(tr(L0, "hint_auto"), id="hint_auto", className="hint"),
             ], id="box_principal", className="mode-box"),
 
             html.Div([
-                html.Div("贴合面（源 → 目标，法向相对）", className="field-label"),
-                dcc.Dropdown(id="dd_from", className="dd", placeholder="源面 …"),
-                dcc.Dropdown(id="dd_to", className="dd", placeholder="目标面 …"),
-                html.Button("▸ 面贴合", id="btn_snap", className="btn primary"),
-                html.Div("把源面的法向转到与目标面法向相对，再把两个平面贴到一起。", className="hint"),
+                html.Div(tr(L0, "lbl_snap"), id="lbl_snap", className="field-label"),
+                dcc.Dropdown(id="dd_from", className="dd", placeholder=tr(L0, "ph_from")),
+                dcc.Dropdown(id="dd_to", className="dd", placeholder=tr(L0, "ph_to")),
+                html.Button(tr(L0, "btn_snap"), id="btn_snap", className="btn primary"),
+                html.Div(tr(L0, "hint_snap"), id="hint_snap", className="hint"),
             ], id="box_face", className="mode-box", style={"display": "none"}),
 
             html.Div([
-                html.Div("把面摆到坐标轴", className="field-label"),
-                dcc.Dropdown(id="dd_face_axis", className="dd", placeholder="选一个平面 …"),
+                html.Div(tr(L0, "lbl_axis"), id="lbl_axis", className="field-label"),
+                dcc.Dropdown(id="dd_face_axis", className="dd", placeholder=tr(L0, "ph_axis")),
                 dcc.Dropdown(id="dd_axis", className="dd", clearable=False,
-                             options=[{"label": f"法向落到 {a}-Z 面", "value": a} for a in "XYZ"],
+                             options=[{"label": tr(L0, "axis_opt", a=a), "value": a} for a in "XYZ"],
                              value="Z"),
-                html.Button("▸ 贴到基准面", id="btn_axis", className="btn primary"),
-                html.Div("仿 3-2-1 基准：选定面的法向对齐到 -轴向，再落到该轴向的 0 平面。",
-                         className="hint"),
+                html.Button(tr(L0, "btn_axis"), id="btn_axis", className="btn primary"),
+                html.Div(tr(L0, "hint_axis"), id="hint_axis", className="hint"),
             ], id="box_axis", className="mode-box", style={"display": "none"}),
 
             html.Div([
-                html.Div("欧拉角 (°)", className="field-label"),
+                html.Div(tr(L0, "lbl_euler"), id="lbl_euler", className="field-label"),
                 html.Div([
                     dcc.Input(id="rx", type="number", value=0, step="any", className="num", placeholder="rx"),
                     dcc.Input(id="ry", type="number", value=0, step="any", className="num", placeholder="ry"),
                     dcc.Input(id="rz", type="number", value=0, step="any", className="num", placeholder="rz"),
                 ], className="num-row"),
                 dcc.Dropdown(id="order", className="dd", clearable=False,
-                             options=[{"label": "顺序 XYZ", "value": "XYZ"},
-                                      {"label": "顺序 ZYX", "value": "ZYX"}], value="XYZ"),
-                html.Div("平移", className="field-label"),
+                             options=[{"label": tr(L0, "order_xyz"), "value": "XYZ"},
+                                      {"label": tr(L0, "order_zyx"), "value": "ZYX"}], value="XYZ"),
+                html.Div(tr(L0, "lbl_translate_exp"), id="lbl_translate_exp", className="field-label"),
                 html.Div([
                     dcc.Input(id="tx", type="number", value=0, step="any", className="num", placeholder="tx"),
                     dcc.Input(id="ty", type="number", value=0, step="any", className="num", placeholder="ty"),
                     dcc.Input(id="tz", type="number", value=0, step="any", className="num", placeholder="tz"),
                 ], className="num-row"),
-                html.Div("等比缩放", className="field-label"),
+                html.Div(tr(L0, "lbl_scale_exp"), id="lbl_scale_exp", className="field-label"),
                 dcc.Input(id="scale", type="number", value=1.0, step="any", className="num wide"),
-                html.Button("▸ 应用绝对位姿", id="btn_euler", className="btn primary"),
-                html.Div("1.0 保持；25.4 = in→mm；0.001 = mm→m。等比缩放会同步缩放半径。",
-                         className="hint"),
+                html.Button(tr(L0, "btn_euler"), id="btn_euler", className="btn primary"),
+                html.Div(tr(L0, "hint_euler"), id="hint_euler", className="hint"),
             ], id="box_euler", className="mode-box", style={"display": "none"}),
 
             html.Div([
-                html.Div("居中方式", className="field-label"),
+                html.Div(tr(L0, "lbl_center"), id="lbl_center", className="field-label"),
                 dcc.RadioItems(id="center_mode", className="modes",
-                               options=[{"label": "包围盒中心", "value": "bbox"},
-                                        {"label": "质心（面积加权）", "value": "mass"}],
+                               options=[{"label": tr(L0, "center_bbox"), "value": "bbox"},
+                                        {"label": tr(L0, "center_mass"), "value": "mass"}],
                                value="bbox", labelClassName="mode-item", inputClassName="mode-radio"),
-                html.Button("▸ 归零", id="btn_center", className="btn primary"),
+                html.Button(tr(L0, "btn_center"), id="btn_center", className="btn primary"),
             ], id="box_center", className="mode-box", style={"display": "none"}),
 
             html.Div(className="divider"),
-            html.Div("高亮 / 拾取", className="field-label"),
-            dcc.Dropdown(id="dd_hl", className="dd", placeholder="高亮某个平面 …"),
+            html.Div(tr(L0, "lbl_hl"), id="lbl_hl", className="field-label"),
+            dcc.Dropdown(id="dd_hl", className="dd", placeholder=tr(L0, "ph_hl")),
             ], id="panel_expert"),
 
             html.Div(className="divider"),
             html.Div([
-                html.Button("⤓ 下载 STEP", id="btn_dl_step", className="btn download"),
-                html.Button("⤓ 下载回执 JSON", id="btn_dl_rcpt", className="btn ghost"),
+                html.Button(tr(L0, "btn_dl_step"), id="btn_dl_step", className="btn download"),
+                html.Button(tr(L0, "btn_dl_rcpt"), id="btn_dl_rcpt", className="btn ghost"),
             ], className="dl-row"),
-            html.Button("↺ 撤销全部变换（复位）", id="btn_reset", className="btn ghost wide"),
+            html.Button(tr(L0, "btn_reset"), id="btn_reset", className="btn ghost wide"),
             html.Div(id="alert", className="alert-zone"),
-            html.Div("用法：上传 → 自动摆正 → 需要时微调 → 下载。导出的 STEP 是把变换烘进几何实体的，"
-                     "下游 CAM / CAE 不会忽略。", className="footnote"),
+            html.Div(tr(L0, "footnote"), id="footnote", className="footnote"),
         ], className="panel"),
     ], className="main"),
 ], id="root", className="root simple")
@@ -422,11 +614,12 @@ app.layout = html.Div([
 PARSE_FAIL = "❌ 模型解析失败：几何体过于复杂或包含破面"
 
 
-def _parse_error_text(exc: BaseException) -> str:
+def _parse_error_text(exc: BaseException, lang: str | None = None) -> str:
     """把所有「解析不出来」的异常压成一句能让用户看懂、能截图发给别人的红字。"""
+    head = tr(lang, "parse_fail")
     if isinstance(exc, getattr(ac, "TessellationError", ())):
-        return f"{PARSE_FAIL} —— {exc}"
-    return f"{PARSE_FAIL} —— {type(exc).__name__}: {exc}"
+        return f"{head} —— {exc}"
+    return f"{head} —— {type(exc).__name__}: {exc}"
 
 
 def _load_project(sid: str) -> ac.Project:
@@ -453,12 +646,12 @@ def _sample_payload(path: str) -> tuple[str, bytes]:
     State("upload", "filename"), State("sid", "data"),
     State("rx", "value"), State("ry", "value"), State("rz", "value"), State("order", "value"),
     State("tx", "value"), State("ty", "value"), State("tz", "value"), State("scale", "value"),
-    State("center_mode", "value"),
+    State("center_mode", "value"), State("lang_sel", "value"),
     prevent_initial_call=True,
 )
 def dispatch(upload_contents, n_box, n_l, mode, n_auto, n_snap, n_axis, n_euler, n_center, n_reset,
              n_dl_step, n_dl_rcpt, hl_value, from_value, to_value, face_axis_value,
-             upload_name, sid, rx, ry, rz, order, tx, ty, tz, scale, center_mode):
+             upload_name, sid, rx, ry, rz, order, tx, ty, tz, scale, center_mode, lang):
     trig = callback_context.triggered_id
 
     def out(fig=no_update, kpis=no_update, mx=no_update, al=no_update, st=no_update,
@@ -476,7 +669,7 @@ def dispatch(upload_contents, n_box, n_l, mode, n_auto, n_snap, n_axis, n_euler,
         try:
             if trig == "upload":
                 if not upload_contents:
-                    return out(al=alert("没有读到文件内容", "err"))
+                    return out(al=alert(tr(lang, "no_file"), "err"))
                 _, b64 = upload_contents.split(",", 1)
                 payload = base64.b64decode(b64)
                 name = upload_name or "model.step"
@@ -484,25 +677,25 @@ def dispatch(upload_contents, n_box, n_l, mode, n_auto, n_snap, n_axis, n_euler,
                 name, payload = _sample_payload(
                     os.path.join(HERE, "samples", "box.stp" if trig == "btn_sample_box" else "lbracket.stp"))
             if len(payload) > MAX_MB * 1024 * 1024:
-                return out(al=alert(f"文件超过 {MAX_MB:.0f} MB 上限", "err"))
+                return out(al=alert(tr(lang, "too_big", mb=MAX_MB), "err"))
             t0 = time.time()
             p = ac.Project.create(WORKDIR, name, payload)
             dt = time.time() - t0
             opts = _face_options(p.mesh)
-            return out(fig=build_figure(p.mesh), kpis=kpi_block(p.mesh, p),
-                       mx=matrix_block(p.transform, p.mesh.unit_label),
-                       al=alert(f"{name} 已载入 · {len(p.mesh.T):,} 三角片 · 解析 {dt:.2f}s · sid {p.sid}", "ok"),
+            return out(fig=build_figure(p.mesh), kpis=kpi_block(p.mesh, p, lang),
+                       mx=matrix_block(p.transform, p.mesh.unit_label, lang),
+                       al=alert(tr(lang, "loaded", name=name, tris=len(p.mesh.T), dt=dt, sid=p.sid), "ok"),
                        st=p.sid, opts=opts)
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
-            return out(al=alert(_parse_error_text(exc), "err"))
+            return out(al=alert(_parse_error_text(exc, lang), "err"))
 
     if not sid:
-        return out(al=alert("先上传一个 STEP 文件", "warn"))
+        return out(al=alert(tr(lang, "upload_first"), "warn"))
     try:
         p = _load_project(sid)
     except Exception as exc:  # noqa: BLE001
-        return out(al=alert(f"会话已失效（{exc}），请重新上传", "err"), st=None)
+        return out(al=alert(tr(lang, "session_expired", err=exc), "err"), st=None)
 
     u = p.mesh.unit_label
     msg, kind = no_update, "info"
@@ -512,19 +705,19 @@ def dispatch(upload_contents, n_box, n_l, mode, n_auto, n_snap, n_axis, n_euler,
     try:
         if trig == "btn_auto":
             p.set_transform(ac.align_principal(p.mesh), "principal")
-            msg, kind = f"✅ 已对齐至最佳视角（最长边 → X，最薄面 → Z）· 包围盒 {_size(p, 'aligned')}", "ok"
+            msg, kind = tr(lang, "aligned_best", size=_size(p, "aligned")), "ok"
         elif trig == "btn_snap":
             if from_value is None or to_value is None:
-                msg, kind = "请先选择源面和目标面", "warn"
+                msg, kind = tr(lang, "pick_faces"), "warn"
             else:
                 p.apply(ac.snap_faces(world, int(from_value), int(to_value)), "snap")
-                msg, kind = "已完成面→面贴合", "ok"
+                msg, kind = tr(lang, "snapped"), "ok"
         elif trig == "btn_axis":
             if face_axis_value is None:
-                msg, kind = "请先选择一个平面", "warn"
+                msg, kind = tr(lang, "pick_plane"), "warn"
             else:
                 p.apply(ac.align_to_axis(world, int(face_axis_value), "Z"), "axis")
-                msg, kind = "已把该面贴到基准面", "ok"
+                msg, kind = tr(lang, "axis_done"), "ok"
         elif trig == "btn_euler":
             def num(v, d=0.0):
                 return d if v is None else float(v)
@@ -534,13 +727,13 @@ def dispatch(upload_contents, n_box, n_l, mode, n_auto, n_snap, n_axis, n_euler,
             R = ac.euler_matrix(num(rx), num(ry), num(rz), order or "XYZ")
             p.set_transform(ac.Transform(R=R, t=np.array([num(tx), num(ty), num(tz)]),
                                          s=s), "euler")
-            msg, kind = f"已应用绝对位姿 · R{euler_order(order)} · s={s:g}", "ok"
+            msg, kind = tr(lang, "euler_done", order=euler_order(order), s=s), "ok"
         elif trig == "btn_center":
             p.apply(ac.align_center(world, center_mode or "bbox"), "center")
-            msg, kind = "已居中", "ok"
+            msg, kind = tr(lang, "centered"), "ok"
         elif trig == "btn_reset":
             p.reset()
-            msg, kind = "已复位到原始位姿", "info"
+            msg, kind = tr(lang, "reset_done"), "info"
         elif trig in ("btn_dl_step", "btn_dl_rcpt"):
             fname = os.path.splitext(p.name)[0] or "model"
             if trig == "btn_dl_step":
@@ -552,10 +745,10 @@ def dispatch(upload_contents, n_box, n_l, mode, n_auto, n_snap, n_axis, n_euler,
                 return out(dl=dcc.send_string(json.dumps(rc, indent=2, ensure_ascii=False),
                                               f"{fname}_aligned.json"))
         elif trig == "mode":
-            msg, kind = "切换对齐模式", "info"
+            msg, kind = tr(lang, "mode_switched"), "info"
     except Exception as exc:  # noqa: BLE001
         traceback.print_exc()
-        msg, kind = f"操作失败：{exc}", "err"
+        msg, kind = tr(lang, "op_failed", err=exc), "err"
 
     # ---- render ------------------------------------------------------------------
     try:
@@ -564,12 +757,12 @@ def dispatch(upload_contents, n_box, n_l, mode, n_auto, n_snap, n_axis, n_euler,
         ff = int(from_value) if (mode == "face" and from_value is not None) else None
         tf_ = int(to_value) if (mode == "face" and to_value is not None) else None
         fig = build_figure(shown, highlight=hl, from_face=ff, to_face=tf_)
-        return out(fig=fig, kpis=kpi_block(shown, p), mx=matrix_block(p.transform, u),
+        return out(fig=fig, kpis=kpi_block(shown, p, lang), mx=matrix_block(p.transform, u, lang),
                    al=alert(msg, kind) if isinstance(msg, str) else no_update,
                    st=sid, opts=_face_options(shown))
     except Exception as exc:  # noqa: BLE001
         traceback.print_exc()
-        return out(al=alert(f"渲染失败：{exc}", "err"))
+        return out(al=alert(tr(lang, "render_failed", err=exc), "err"))
 
 
 def euler_order(o: str | None) -> str:
@@ -865,6 +1058,17 @@ app.index_string = """<!DOCTYPE html>
     .expert-switch .dash-options-list-option.selected{border-color:rgba(255,45,149,.65);
       color:#ffd6e8;background:linear-gradient(180deg,rgba(255,45,149,.18),rgba(255,45,149,.05))}
     .expert-switch input{accent-color:#ff2d95}
+    /* ---- 语言切换（右上角，极简 EN / 中文） ---- */
+    .lang-wrap{display:flex;align-items:center;margin-left:14px}
+    .lang-switch .dash-options-list{display:flex;gap:4px}
+    .lang-switch .dash-options-list-option{display:flex;align-items:center;gap:5px;
+      padding:4px 10px;border:1px solid var(--line);border-radius:999px;cursor:pointer;
+      font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;
+      color:#8fa6ba;background:rgba(255,255,255,.02);transition:.15s}
+    .lang-switch .dash-options-list-option:hover{border-color:rgba(0,229,255,.45);color:#cfefff}
+    .lang-switch .dash-options-list-option.selected{border-color:rgba(0,229,255,.75);
+      color:#eafcff;background:linear-gradient(180deg,rgba(0,229,255,.18),rgba(0,229,255,.05))}
+    .lang-switch input{display:none}
 
     /* 模式显隐：钩子放在根节点上，一个输出搞定全部面板 */
     .root.simple #panel_expert{display:none}
@@ -941,6 +1145,115 @@ app.index_string = """<!DOCTYPE html>
 def mode_switch(expert):
     """勾上专家模式 → 根节点换 class，CSS 负责显隐全部硬核面板与 4x4 矩阵。"""
     return "root expert" if expert else "root simple"
+
+
+# ======================================================================================
+# i18n 切换：只输出「文字类」属性，绝不触碰 figure / sid / sbase / 任何滑块 value
+# ======================================================================================
+# 每条 = (要改的组件属性, 用当前语言算出新值)。Output 顺序由这张表自动生成，
+# 所以加一句新文案只需在这张表里加一行 + 在 TRANSLATIONS 里补两个词。
+LANG_SPEC = [
+    (("expert", "options"),        lambda L: [{"label": tr(L, "expert"), "value": "on"}]),
+    (("simple_hint", "children"),  lambda L: tr(L, "simple_hint")),
+    (("upload", "children"),       lambda L: html.Div([
+                                        html.Div(tr(L, "dz_main"), id="dz_main", className="dz-main"),
+                                        html.Div(tr(L, "dz_sub", mb=MAX_MB), id="dz_sub", className="dz-sub"),
+                                    ])),
+    (("btn_sample_box", "children"), lambda L: tr(L, "sample_box")),
+    (("btn_sample_l", "children"), lambda L: tr(L, "sample_l")),
+    (("panel_title", "children"),  lambda L: tr(L, "panel_title")),
+    # ---- 小白模式 ----
+    (("btn_auto_simple", "children"), lambda L: tr(L, "btn_auto_simple")),
+    (("tip_auto", "data-tip"),     lambda L: tr(L, "tip_auto")),
+    (("hint_principle", "children"), lambda L: tr(L, "hint_principle")),
+    (("lbl_translate", "children"), lambda L: tr(L, "lbl_translate")),
+    (("hint_pct", "children"),     lambda L: tr(L, "hint_pct")),
+    (("lbl_rotate", "children"),   lambda L: tr(L, "lbl_rotate")),
+    (("hint_inc90", "children"),   lambda L: tr(L, "hint_inc90")),
+    (("hint_inc180", "children"),  lambda L: tr(L, "hint_inc180")),
+    (("q_reset", "children"),      lambda L: tr(L, "btn_reset_rot")),
+    (("hint_norm", "children"),    lambda L: tr(L, "hint_norm")),
+    (("lbl_scale", "children"),    lambda L: tr(L, "lbl_scale")),
+    (("hint_scale", "children"),   lambda L: tr(L, "hint_scale")),
+    # ---- 专家模式 ----
+    (("lbl_mode", "children"),     lambda L: tr(L, "lbl_mode")),
+    (("mode", "options"),          lambda L: [{"label": tr(L, k), "value": v} for k, v in
+                                              (("mode_principal", "principal"), ("mode_face", "face"),
+                                               ("mode_axis", "axis"), ("mode_euler", "euler"),
+                                               ("mode_center", "center"))]),
+    (("btn_auto", "children"),     lambda L: tr(L, "btn_auto")),
+    (("hint_auto", "children"),    lambda L: tr(L, "hint_auto")),
+    (("lbl_snap", "children"),     lambda L: tr(L, "lbl_snap")),
+    (("dd_from", "placeholder"),   lambda L: tr(L, "ph_from")),
+    (("dd_to", "placeholder"),     lambda L: tr(L, "ph_to")),
+    (("btn_snap", "children"),     lambda L: tr(L, "btn_snap")),
+    (("hint_snap", "children"),    lambda L: tr(L, "hint_snap")),
+    (("lbl_axis", "children"),     lambda L: tr(L, "lbl_axis")),
+    (("dd_face_axis", "placeholder"), lambda L: tr(L, "ph_axis")),
+    (("dd_axis", "options"),       lambda L: [{"label": tr(L, "axis_opt", a=a), "value": a} for a in "XYZ"]),
+    (("btn_axis", "children"),     lambda L: tr(L, "btn_axis")),
+    (("hint_axis", "children"),    lambda L: tr(L, "hint_axis")),
+    (("lbl_euler", "children"),    lambda L: tr(L, "lbl_euler")),
+    (("order", "options"),         lambda L: [{"label": tr(L, "order_xyz"), "value": "XYZ"},
+                                              {"label": tr(L, "order_zyx"), "value": "ZYX"}]),
+    (("lbl_translate_exp", "children"), lambda L: tr(L, "lbl_translate_exp")),
+    (("lbl_scale_exp", "children"), lambda L: tr(L, "lbl_scale_exp")),
+    (("btn_euler", "children"),    lambda L: tr(L, "btn_euler")),
+    (("hint_euler", "children"),   lambda L: tr(L, "hint_euler")),
+    (("lbl_center", "children"),   lambda L: tr(L, "lbl_center")),
+    (("center_mode", "options"),   lambda L: [{"label": tr(L, "center_bbox"), "value": "bbox"},
+                                              {"label": tr(L, "center_mass"), "value": "mass"}]),
+    (("btn_center", "children"),   lambda L: tr(L, "btn_center")),
+    (("lbl_hl", "children"),       lambda L: tr(L, "lbl_hl")),
+    (("dd_hl", "placeholder"),     lambda L: tr(L, "ph_hl")),
+    # ---- 底部 ----
+    (("btn_dl_step", "children"),  lambda L: tr(L, "btn_dl_step")),
+    (("btn_dl_rcpt", "children"),  lambda L: tr(L, "btn_dl_rcpt")),
+    (("btn_reset", "children"),    lambda L: tr(L, "btn_reset")),
+    (("footnote", "children"),     lambda L: tr(L, "footnote")),
+]
+
+# KPI / 矩阵标题只有「载入模型后」才存在于 DOM。Dash 一旦发现某个 Output 组件不存在，
+# 整个回调的返回值都会被丢弃 —— 所以这几条必须单独一个回调，不能和上面的静态文案混在一起，
+# 否则「还没上传模型时切语言，界面一个字都不变」。
+LANG_SPEC_MODEL = [
+    (("kpi_k_bbox", "children"),   lambda L: tr(L, "kpi_bbox")),
+    (("kpi_k_vol", "children"),    lambda L: tr(L, "kpi_vol")),
+    (("kpi_k_center", "children"), lambda L: tr(L, "kpi_center")),
+    (("kpi_k_faces", "children"),  lambda L: tr(L, "kpi_faces")),
+    (("kpi_k_file", "children"),   lambda L: tr(L, "kpi_file")),
+    (("mx_title", "children"),     lambda L: tr(L, "mx_title")),
+]
+
+
+@app.callback(*[Output(c, p) for (c, p), _ in LANG_SPEC], Input("lang_sel", "value"))
+def i18n_switch(lang):
+    """切换语言 = 只重写这些「纯文字」属性。figure / sid / sbase / 滑块 value 一个都不在里面，
+    所以 3D 相机、已导入模型、滑块数值全部原封不动。"""
+    lang = lang if lang in LANGS else DEFAULT_LANG
+    return [fn(lang) for _, fn in LANG_SPEC]
+
+
+@app.callback(*[Output(c, p) for (c, p), _ in LANG_SPEC_MODEL], Input("lang_sel", "value"))
+def i18n_switch_model(lang):
+    """KPI / 矩阵标题的标签（模型载入后才存在）。数值不变，只改标题那几个字。"""
+    lang = lang if lang in LANGS else DEFAULT_LANG
+    return [fn(lang) for _, fn in LANG_SPEC_MODEL]
+
+
+# ---- 只改浏览器标题（纯前端，零服务器往返） ----------------------------------------
+# 不做 localStorage 记住语言：dcc.Upload 会在首屏自己重渲染一次 children，
+# 把回填的语言补丁顶掉（面板中文、拖拽区还是英文）。默认英文、手动切换，最稳。
+app.clientside_callback(
+    """
+    function(lang){
+        document.title = (lang === "zh") ? "网页版 STEP 摆正器" : "Web-STEP-Aligner";
+        return lang || "en";
+    }
+    """,
+    Output("lang_echo", "data"),
+    Input("lang_sel", "value"),
+)
 
 
 # ---- 滑块数值实时显示（纯前端，不打服务器） --------------------------------------
@@ -1079,9 +1392,10 @@ def _pct(v, d: float = 0.0) -> float:
     Input("btn_auto_simple", "n_clicks"),
     Input("btn_reset", "n_clicks"),
     Input("expert", "value"),
+    State("lang_sel", "value"),
     prevent_initial_call=True,
 )
-def simple_base(sid, n_auto, n_reset, expert):
+def simple_base(sid, n_auto, n_reset, expert, lang):
     """把当前位姿记成滑块的基准，同时把 7 个滑块归零（0/0/0/0/0/0/100%）。"""
     zero = (0, 0, 0, 0, 0, 0, 100)
     if not sid:
@@ -1092,13 +1406,13 @@ def simple_base(sid, n_auto, n_reset, expert):
         if callback_context.triggered_id == "btn_auto_simple":
             p.set_transform(ac.align_principal(p.mesh), "principal")
             shown = p.mesh.transformed(p.transform)
-            fig, kpis = build_figure(shown), kpi_block(shown, p)
-            mx = matrix_block(p.transform, p.mesh.unit_label)
-            al = alert("✅ 已对齐至最佳视角（最长边 → X，最薄面 → Z）· 现在只用滑块微调即可", "ok")
+            fig, kpis = build_figure(shown), kpi_block(shown, p, lang)
+            mx = matrix_block(p.transform, p.mesh.unit_label, lang)
+            al = alert(tr(lang, "aligned_simple"), "ok")
         return ({"sid": sid, "tf": p.transform.to_dict()}, *zero, fig, kpis, mx, al)
     except Exception as exc:  # noqa: BLE001
         traceback.print_exc()
-        return (None, *zero, no_update, no_update, no_update, alert(f"操作失败：{exc}", "err"))
+        return (None, *zero, no_update, no_update, no_update, alert(tr(lang, "op_failed", err=exc), "err"))
 
 
 # ---- 滑块 → 底层 4x4 变换（绕包围盒中心，可逆、无累计漂移） ------------------------
@@ -1108,10 +1422,10 @@ def simple_base(sid, n_auto, n_reset, expert):
     Output("matrix", "children", allow_duplicate=True),
     Output("alert", "children", allow_duplicate=True),
     Input("sdeb", "data"),
-    State("sid", "data"), State("sbase", "data"),
+    State("sid", "data"), State("sbase", "data"), State("lang_sel", "value"),
     prevent_initial_call=True,
 )
-def apply_simple(deb, sid, sbase):
+def apply_simple(deb, sid, sbase, lang):
     """
     数学：设基准位姿 base: x -> s_b·R_b·x + t_b，包围盒中心 C，半尺寸 h。
       d  = (px,py,pz)/100 · h                 ← 平移滑块（相对包围盒）
@@ -1133,7 +1447,7 @@ def apply_simple(deb, sid, sbase):
     try:
         p = _load_project(sid)
     except Exception as exc:  # noqa: BLE001
-        return no_update, no_update, no_update, alert(f"会话已失效（{exc}），请重新上传", "err")
+        return no_update, no_update, no_update, alert(tr(lang, "session_expired", err=exc), "err")
 
     base = ac.Transform.from_dict(sbase["tf"]) if (sbase and sbase.get("sid") == sid) else p.transform.copy()
     bb = p.mesh.transformed(base).bbox()
@@ -1153,11 +1467,11 @@ def apply_simple(deb, sid, sbase):
     p.set_transform(tf, "simple")
 
     shown = p.mesh.transformed(tf)
-    msg = (f"滑块微调 · 平移 ({d[0]:+.2f}, {d[1]:+.2f}, {d[2]:+.2f}) {p.mesh.unit_label} · "
-           f"旋转 ({_pct(deb.get('rx')):.0f}, {_pct(deb.get('ry')):.0f}, "
-           f"{_pct(deb.get('rz')):.0f})° · 缩放 {sc:.3f}")
-    return (build_figure(shown), kpi_block(shown, p),
-            matrix_block(tf, p.mesh.unit_label), alert(msg, "info"))
+    msg = tr(lang, "simple_adjust",
+             tx=d[0], ty=d[1], tz=d[2], unit=p.mesh.unit_label,
+             rx=_pct(deb.get("rx")), ry=_pct(deb.get("ry")), rz=_pct(deb.get("rz")), sc=sc)
+    return (build_figure(shown), kpi_block(shown, p, lang),
+            matrix_block(tf, p.mesh.unit_label, lang), alert(msg, "info"))
 
 
 if __name__ == "__main__":
