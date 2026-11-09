@@ -108,6 +108,8 @@ No account. No cloud upload. No license server. Your geometry never leaves your 
 The kernel is stateless and CPU-only. One process, one port, no database — the only state is a temp directory per session, cleaned on exit.
 
 ---
+<img width="1882" height="892" alt="Screenshot 2026-11-10 044204" src="https://github.com/user-attachments/assets/f9b2d947-d288-48dd-8e61-4aad1f89386c" />
+
 
 ## 🚀 Quick start
 
