@@ -1,0 +1,7 @@
+# Web-STEP-Aligner — 运行依赖
+# pip install -r requirements.txt
+dash>=4.0
+plotly>=5.20
+flask>=3.0
+numpy>=1.24
+cascadio>=0.1.0
