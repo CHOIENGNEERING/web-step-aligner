@@ -84,7 +84,7 @@ Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, s
 <p align="center">
   <img src="architecture.png" alt="Architecture" width="1000">
 </p>
----
+
 
 ## 🚀 Quick start
 
