@@ -85,11 +85,7 @@ Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, s
   <img src="docs/architecture.png" alt="Architecture — browser, Dash callbacks, OCC kernel, STEP + receipt output" width="1000">
 </p>
 
-<p align="center"><i>Source of the diagram: <a href="docs/architecture.html">docs/architecture.html</a>.</i></p>
-
-One process, one port, no database. The kernel is stateless and CPU-only; the only state is a temp directory per session under `jobs/<sid>/`, holding the uploaded STEP, the session transform and the mesh metadata.
-
-Tessellation runs in a **subprocess with a hard timeout**, so a pathological BREP returns a readable error instead of freezing the server.
+<p align="center"><i>Source of the diagram: <a href="docs/architecture.html">docs/architecture.html</a></i></p>
 
 ---
 
