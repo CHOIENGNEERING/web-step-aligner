@@ -65,17 +65,13 @@ No account. No cloud upload. No license server. Your geometry never leaves your 
 
 > **Scope note:** this project only *poses* geometry. It does not heal topology, stitch gaps or rebuild surfaces — alignment and rigid/similarity transforms, nothing else.
 
----
+
 <img width="1882" height="892" alt="Image" src="https://github.com/user-attachments/assets/68c3e2e3-e587-4518-b645-61dce6539991" />
-<!--
-  ⬆️ TODO（留给你自己填）：把赛博朋克风格截图放到 docs/screenshot-cyberpunk.png
-  建议构图：左 2/3 是黑底 + 青/品红发光边线的三维视口，右 1/3 是暗紫色玻璃拟态控制面板，
-  顶部显示 "Web-STEP-Aligner v0.1" 与绿色 "OCC 7.7 · AP214" 状态灯。
-  截图尺寸建议 1600×1000（Retina 2x 更佳），文件名保持 screenshot-cyberpunk.png。
--->
----
+
+
 
 **<video src="https://github.com/user-attachments/assets/1b8d3677-59de-47b9-8335-e009fa310093" controls autoplay loop muted width="100%"></video>**
+
 
 ## 🏗 Architecture
 
