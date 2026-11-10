@@ -29,9 +29,7 @@
 > **A lightweight web-based microservice to easily align, rotate, and scale your STEP files — without heavy CAD software.**
 > Easily align, rotate, and scale STEP models directly in your browser—no heavy CAD software required.
 
-</div>
-https://github.com/user-attachments/assets/41dc07a5-c1a4-42f0-a6b5-bf713999719f
----
+<video src="https://github.com/user-attachments/assets/41dc07a5-c1a4-42f0-a6b5-bf713999719f" controls autoplay loop muted width="100%"></video>
 
 ## ⚡ Why this exists
 
@@ -67,11 +65,6 @@ No account. No cloud upload. No license server. Your geometry never leaves your 
 
 
 <img width="1882" height="892" alt="Image" src="https://github.com/user-attachments/assets/68c3e2e3-e587-4518-b645-61dce6539991" />
-
-
-
-**<video src="https://github.com/user-attachments/assets/1b8d3677-59de-47b9-8335-e009fa310093" controls autoplay loop muted width="100%"></video>**
-
 
 ## 🏗 Architecture
 
