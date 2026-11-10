@@ -27,8 +27,7 @@
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](#contributing)
 
 > **A lightweight web-based microservice to easily align, rotate, and scale your STEP files — without heavy CAD software.**
->
-> 无需沉重的 CAD 软件，在浏览器里轻松对齐 / 旋转 / 缩放 STEP 模型。
+> Easily align, rotate, and scale STEP models directly in your browser—no heavy CAD software required.
 
 </div>
 https://github.com/user-attachments/assets/41dc07a5-c1a4-42f0-a6b5-bf713999719f
@@ -74,8 +73,8 @@ No account. No cloud upload. No license server. Your geometry never leaves your 
   顶部显示 "Web-STEP-Aligner v0.1" 与绿色 "OCC 7.7 · AP214" 状态灯。
   截图尺寸建议 1600×1000（Retina 2x 更佳），文件名保持 screenshot-cyberpunk.png。
 -->
-
 ---
+https://github.com/user-attachments/assets/1b8d3677-59de-47b9-8335-e009fe310093
 
 ## 🏗 Architecture
 
@@ -100,19 +99,17 @@ No account. No cloud upload. No license server. Your geometry never leaves your 
 The kernel is stateless and CPU-only. One process, one port, no database — the only state is a temp directory per session, cleaned on exit.
 
 ---
-<img width="1882" height="892" alt="Screenshot 2026-11-10 044204" src="https://github.com/user-attachments/assets/f9b2d947-d288-48dd-8e61-4aad1f89386c" />
 
 
 ## 🚀 Quick start
 
 ### 0. Requirements
 
-- Python **3.10+**（本机 3.15 已验证）
+- Python **3.10+**(Verified on this device; version 3.15)
 - Windows 10/11 / Linux / macOS
-- **不需要 conda，不需要 pythonocc-core**：几何内核是 `cascadio`（wheel 里自带 OpenCASCADE 8.0，`pip install` 即装即用），STEP 的读 / 改写是 `aligner_core.py` 里自带的 ISO-10303-21 解析器。
-
+-**No `conda` or `pythonocc-core` required:** The geometric kernel is `cascadio` (which includes OpenCASCADE 8.0 within the wheel, allowing for immediate use upon `pip install`), and STEP file reading/modification is handled by an ISO-10303-21 parser built into `aligner_core.py`.
+  
 ### Install
-
 ```bash
 cd Web-STEP-Aligner
 python -m pip install -r requirements.txt
@@ -132,7 +129,7 @@ cascadio>=0.1.0      # OpenCASCADE 三角化 + 平面解析数据（wheel 内置
 
 ```bash
 python app.py
-# 或者双击  start_8052.bat   （自动补依赖 + 开浏览器）
+# Or double-click  start_8052.bat   (Automatically install dependencies + launch browser)
 ```
 
 ```
@@ -151,19 +148,20 @@ export ALIGNER_MAX_MB=200       # upload cap
 export ALIGNER_DEBUG=1          # Dash 调试模式
 ```
 
-### 两个引擎，一份几何
+### Two Engines, One Geometry
 
-| 用途 | 实现 | 说明 |
+| Purpose | Implementation | Description |
 |---|---|---|
-| 预览 / 测量 / 拾取面 | `cascadio` → GLB（`include_brep=True`） | OCC 三角化，附带每个面的 plane / cylinder 解析参数，用于面法向列表与面贴合 |
-| 导出 | 纯 Python 改写 STEP 文本 | 逐条重写 `CARTESIAN_POINT` / `DIRECTION` / `VECTOR` 模长 / 各类半径实体，变换**烘进 BREP**，不重新三角化、不丢拓扑 |
+| Preview / Measurement / Face Selection | `cascadio` → GLB (`include_brep=True`) | Uses OCC triangulation, supplemented with analytical parameters (e.g., plane/cylinder definitions) for each face—enabling face-normal extraction and surface fitting. |
+| Export | Pure Python-based STEP text generation | Reconstructs STEP entities (such as `CARTESIAN_POINT`, `DIRECTION`, `VECTOR` magnitudes, and various radius-based entities) from scratch. Transformations are **baked directly into the BREP**; this ensures no re-triangulation occurs and topology is preserved. |
+|
 
-> 已经踩过的坑（改代码前必读）：STEP 里 `*_SHAPE_REPRESENTATION` 自带的 `AXIS2_PLACEMENT_3D` 会被读取器当成零件坐标系再乘一次，导出时**必须原样保留**，否则模型会被变换两遍。
+> Pitfalls Encountered (Read before modifying code): The `AXIS2_PLACEMENT_3D` entity—contained within `*_SHAPE_REPRESENTATION` in STEP files—is interpreted by readers as a part-level coordinate system and applied as an additional transformation. It **must be preserved exactly as is** during export; otherwise, the model will undergo the transformation twice.
 
-### 自检
+### Self-Check
 
 ```bash
-python tests/selftest.py      # 16 项：包围盒 / 体积 / 最小包围盒 / 导出回读 / 缩放 / 面拾取
+python tests/selftest.py     # Item 16: Bounding Box / Volume / Minimum Bounding Box / Export & Read-back / Scaling / Face Picking
 ```
 
 ---
@@ -222,8 +220,8 @@ curl -s "http://127.0.0.1:8052/api/export?sid=$SID&ap=214" -o bracket_aligned.st
 - [x] Principal-axis + bbox-centering auto-align
 - [x] Interactive Dash viewport with neon wireframe
 - [x] Transform receipt sidecar
-- [x] 面清单 / 法向 / 面积（下拉拾取 + 3D 高亮）
-- [ ] 3D 视口内直接点选面
+- [x] Face List / Normal / Area (selection via drop-down + 3D highlighting)
+- [ ] Select faces directly within the 3D viewport
 - [ ] Per-component pose for assemblies
 - [ ] IGES + BREP import
 - [ ] Batch CLI: `aligner *.stp --mode principal -o out/`
