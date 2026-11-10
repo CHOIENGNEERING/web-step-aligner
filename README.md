@@ -15,7 +15,7 @@
        ╚═╝  ╚═╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝
 ```
 
-# Web-STEP-Aligner · 空间摆正器
+# Web-STEP-Aligner 
 
 **Drop a STEP file in the browser. Get it back perfectly posed.**
 
@@ -31,7 +31,7 @@
 > 无需沉重的 CAD 软件，在浏览器里轻松对齐 / 旋转 / 缩放 STEP 模型。
 
 </div>
-
+https://github.com/user-attachments/assets/41dc07a5-c1a4-42f0-a6b5-bf713999719f
 ---
 
 ## ⚡ Why this exists
