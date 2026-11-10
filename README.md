@@ -37,7 +37,7 @@
 
 ---
 
-![Web-STEP-Aligner screenshot](docs/screenshot.png)
+<img width="1917" height="902" alt="Image" src="https://github.com/user-attachments/assets/9c9a3bfb-dd00-4a78-8d17-7419c44ade47" />
 
 <p align="center"><i>Neon 3D viewport, live bounding box / volume / facet readout, and the transform panel — one page, no install.</i></p>
 
