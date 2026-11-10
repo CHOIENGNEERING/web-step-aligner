@@ -55,16 +55,7 @@ A vendor sends you a STEP file. It is beautiful. It is also:
 Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, snap it to a canonical pose (or rotate it by hand), and download a clean STEP with the transform **baked into the geometry** — not wrapped around it.
 
 ---
-
-## 🔴 Demo
-
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/4d1e8750-b3e8-4d40-85dc-b9247cee1388" controls autoplay loop muted width="100%"></video>
-</p>
-
-<p align="center"><i>Orbiting a part in the viewport: tessellated BREP, dashed bounding box, millimetre grid. (Full quality: <a href="docs/demo.mp4">docs/demo.mp4</a>)</i></p>
-
----
+<p align="center"><i>Orbiting a part in the viewport: tessellated BREP, dashed bounding box, millimetre grid. (Full quality: <a href="你的视频链接">Click here to watch demo</a>)</i></p>
 ---
 
 ## 🧩 Features
