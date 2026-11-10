@@ -59,7 +59,7 @@ Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, s
 ## ▶ Demo
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Orbiting a tessellated STEP part inside the neon bounding box" width="900">
+ <video src="https://github.com/user-attachments/assets/33aed312-1dac-45ce-9248-303d07a37926" controls autoplay loop muted width="100%"></video>
 </p>
 
 <p align="center"><i>Orbiting a part in the viewport: tessellated BREP, dashed bounding box, millimetre grid. (Full quality: <a href="docs/demo.mp4">docs/demo.mp4</a>)</i></p>
