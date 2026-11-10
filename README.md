@@ -74,7 +74,8 @@ No account. No cloud upload. No license server. Your geometry never leaves your 
   截图尺寸建议 1600×1000（Retina 2x 更佳），文件名保持 screenshot-cyberpunk.png。
 -->
 ---
-https://github.com/user-attachments/assets/1b8d3677-59de-47b9-8335-e009fe310093
+
+**<video src="https://github.com/user-attachments/assets/1b8d3677-59de-47b9-8335-e009fa310093" controls autoplay loop muted width="100%"></video>**
 
 ## 🏗 Architecture
 
