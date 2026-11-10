@@ -1,252 +1,234 @@
+README
 <div align="center">
-
-```
  ██╗    ██╗███████╗██████╗       ███████╗████████╗███████╗██████╗
  ██║    ██║██╔════╝██╔══██╗      ██╔════╝╚══██╔══╝██╔════╝██╔══██╗
  ██║ █╗ ██║█████╗  ██████╔╝█████╗███████╗   ██║   █████╗  ██████╔╝
  ██║███╗██║██╔══╝  ██╔══██╗╚════╝╚════██║   ██║   ██╔══╝  ██╔═══╝
  ╚███╔███╔╝███████╗██████╔╝      ███████║   ██║   ███████╗██║
   ╚══╝╚══╝ ╚══════╝╚═════╝       ╚══════╝   ╚═╝   ╚══════╝╚═╝
-        █████╗ ██╗     ██╗ ██████╗ ███╗   ██╗███████╗██████╗
-       ██╔══██╗██║     ██║██╔════╝ ████╗  ██║██╔════╝██╔══██╗
-       ███████║██║     ██║██║  ███╗██╔██╗ ██║█████╗  ██████╔╝
-       ██╔══██║██║     ██║██║   ██║██║╚██╗██║██╔══╝  ██╔══██╗
-       ██║  ██║███████╗██║╚██████╔╝██║ ╚████║███████╗██║  ██║
-       ╚═╝  ╚═╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝
-```
-
-# Web-STEP-Aligner 
-
-**Drop a STEP file in the browser. Get it back perfectly posed.**
-
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Kernel](https://img.shields.io/badge/Geometry%20Kernel-OpenCASCADE%208.0%20(cascadio)-00E5FF)](https://github.com/trimesh/cascadio)
-[![UI](https://img.shields.io/badge/UI-Plotly%20Dash-FF2D95)](https://dash.plotly.com/)
-[![Port](https://img.shields.io/badge/Port-8052-9D00FF)](http://127.0.0.1:8052)
-[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
-[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](#contributing)
-
-> **A lightweight web-based microservice to easily align, rotate, and scale your STEP files — without heavy CAD software.**
-> Easily align, rotate, and scale STEP models directly in your browser—no heavy CAD software required.
-
-<video src="https://github.com/user-attachments/assets/41dc07a5-c1a4-42f0-a6b5-bf713999719f" controls autoplay loop muted width="100%"></video>
-
-## ⚡ Why this exists
-
-Your vendor sends you a STEP file. It is beautiful. It is also:
-
-- rotated 90° about an axis nobody documented,
-- sitting 1,342.7 mm off the origin,
-- in millimetres when your assembly is in metres,
-- and the only tool you own that can fix it takes **four minutes to launch** and **2 GB of RAM to rotate a box**.
-
-`Web-STEP-Aligner` is a **one-page** cure for that. It reads the BREP, shows you the part, lets you snap it onto a canonical pose (or a face, or a datum), and hands you back a clean `STEP` file — from a browser tab on `localhost:8052`.
-
-No account. No cloud upload. No license server. Your geometry never leaves your machine.
-
----
-
-## 🧩 Core features
-
-| | Feature | What it actually means |
-|---|---|---|
-| 🌀 | **Zero install for the end user** | The whole tool is a local web page. `python app.py` → open `127.0.0.1:8052`. No CAD seat, no plugin, no license. |
-| 📦 | **Real STEP, real BREP** | `STEPControl_Reader` / `STEPControl_Writer` (AP203 / AP214 / AP242). Faces, edges and assembly structure survive — nothing is tessellated to death and re-exported as a soup of triangles. |
-| 🧠 | **OpenCASCADE geometry kernel** | `cascadio` ships the same OCC that sits inside FreeCAD and KiCad StepUp — as a plain `pip install` wheel, no conda. |
-| 🎯 | **Principal-axis auto-align** | PCA over surface-area-weighted face centroids → minimal bounding box → snap longest axis to X, mid axis to Y, thinnest to Z. One click, deterministic, symmetric about the origin. |
-| 🖱️ | **Face-to-face / plane snapping** | Pick two planar faces (or one face + world axis) and the part rotates so the normals agree, then translates to a chosen datum. |
-| 🎚️ | **Interactive transform panel** | Live Euler rotations (XYZ / ZYX), translation vector, uniform or per-axis scale — every widget updates the preview before you commit. |
-| 🔍 | **Measurement-grade readback** | Live bounding box, part volume, center of mass and face count shown next to the viewport, so you can *verify* the pose instead of trusting it. |
-| 💾 | **One-click download** | `GET /api/export` streams a re-written STEP with the transform baked into the geometry (not a wrapper transform that downstream tools ignore). |
-| 🧾 | **Transform receipt** | Every export ships a `.json` sidecar: the exact rotation matrix, translation, scale and the pre/post bounding box — auditable, reproducible, diff-able in git. |
-| 🕶️ | **Cyberpunk UI** | Neon wireframe overlay, dark grid, glowing edges. Because a CAE tool is allowed to look like a nightclub. |
-
-> **Scope note:** this project only *poses* geometry. It does not heal topology, stitch gaps or rebuild surfaces — alignment and rigid/similarity transforms, nothing else.
-
-
-<img width="1882" height="892" alt="Image" src="https://github.com/user-attachments/assets/68c3e2e3-e587-4518-b645-61dce6539991" />
-
-## 🏗 Architecture
-
-```
-┌─────────────────────────────┐
-│  Browser (Dash · Plotly)    │   drag & drop, 3D preview, sliders
-└──────────────┬──────────────┘
-               │  JSON  (transform params)
-┌──────────────▼──────────────┐
-│  Flask / Dash callbacks     │   app.py  ·  session store (jobs/<sig>/)
-└──────────────┬──────────────┘
-               │  TopoDS_Shape  +  gp_Trsf
-┌──────────────▼──────────────┐
-│  OCC 8.0 (cascadio) + 文本改写 │   STEP read → tessellate → rewrite → STEP write
-└──────────────┬──────────────┘
-               │
-     ┌─────────▼─────────┐
-     │  <name>_aligned.step │  +  <name>_aligned.json (receipt)
-     └───────────────────┘
-```
-
-The kernel is stateless and CPU-only. One process, one port, no database — the only state is a temp directory per session, cleaned on exit.
-
----
-
-
-## 🚀 Quick start
-
-### 0. Requirements
-
-- Python **3.10+**(Verified on this device; version 3.15)
-- Windows 10/11 / Linux / macOS
--**No `conda` or `pythonocc-core` required:** The geometric kernel is `cascadio` (which includes OpenCASCADE 8.0 within the wheel, allowing for immediate use upon `pip install`), and STEP file reading/modification is handled by an ISO-10303-21 parser built into `aligner_core.py`.
-  
-### Install
-```bash
-cd Web-STEP-Aligner
+       █████╗ ██╗     ██╗ ██████╗ ███╗   ██╗███████╗██████╗
+      ██╔══██╗██║     ██║██╔════╝ ████╗  ██║██╔════╝██╔══██╗
+      ███████║██║     ██║██║  ███╗██╔██╗ ██║█████╗  ██████╔╝
+      ██╔══██║██║     ██║██║   ██║██║╚██╗██║██╔══╝  ██╔══██╗
+      ██║  ██║███████╗██║╚██████╔╝██║ ╚████║███████╗██║  ██║
+      ╚═╝  ╚═╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝
+​
+Web-STEP-Aligner
+Drop a STEP file in the browser. Get it back perfectly posed.
+A local web app that aligns, rotates and re-exports STEP files — without launching a CAD system.
+Runs on 127.0.0.1:8052. No account, no upload, no licence server. Your geometry never leaves the machine.
+</div>
+<p align="center"><i>Neon 3D viewport, live bounding box / volume / facet readout, and the transform panel — one page, no install.</i></p>
+⚡ Why this exists
+A vendor sends you a STEP file. It is beautiful. It is also:
+rotated 90° about an axis nobody documented,
+sitting 1,342.7 mm away from the origin,
+in millimetres while your assembly is in metres,
+and the only tool you own that can fix it takes four minutes to launch and 2 GB of RAM to rotate a box.
+Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, snap it to a canonical pose (or rotate it by hand), and download a clean STEP with the transform baked into the geometry — not wrapped around it.
+▶ Demo
+<p align="center">
+<img src="docs/demo.gif" alt="Orbiting a tessellated STEP part inside the neon bounding box" width="900">
+</p>
+<p align="center"><i>Orbiting a part in the viewport: tessellated BREP, dashed bounding box, millimetre grid. (Full quality: <a href="docs/demo.mp4">docs/demo.mp4</a>)</i></p>
+🧩 Features
+Feature
+What it actually does
+🌀​
+Nothing to install for the end user
+The whole tool is a local web page. Start one Python process, open a tab. No CAD seat, no plug-in, no licence.
+📦​
+Real STEP, real BREP
+Plain ISO-10303-21 is parsed and re-written on the way out (AP203 / AP214 / AP242). Faces, edges and assembly structure survive — no "export the tessellation as triangles" nonsense.
+🧠​
+OpenCASCADE inside a wheel
+Geometry comes from cascadio, which ships the same OCC that powers FreeCAD and KiCad StepUp — pip install, no conda, no OCCT build.
+🎯​
+One-click Auto Align
+Longest edge → X axis, thinnest face flat on XY with Z up, bounding-box centre moved to the origin. Deterministic, symmetric, repeatable.
+🎚️​
+Sliders for the last millimetre
+Translation in % of half the bounding box (100 % = half the model), rotation by any angle with degrees in a numeric box, plus one-click ±90° / ±180° increments and a reset.
+🧾​
+Numbers you can check
+Bounding box X×Y×Z, volume, BREP face count and triangle count are printed next to the viewport, so the pose is verified rather than trusted.
+💾​
+Transform baked in
+The export is a re-written STEP whose CARTESIAN_POINTs already carry the transform, plus a .json receipt: rotation matrix, translation, scale, pre/post bounding box. Auditable and diff-able in git.
+🌐​
+EN / 中文
+The entire UI is translated at runtime; switching language never resets the camera, the model or the sliders.
+🕶️​
+Cyberpunk skin
+Neon edges, dark grid, glowing thumbs. A CAE tool is allowed to look like a nightclub.
+Scope note: this project only poses geometry. It does not heal topology, stitch gaps or rebuild surfaces — rigid and similarity transforms, nothing else.
+🏗 Architecture
+<p align="center">
+<img src="docs/architecture.png" alt="Architecture — browser, Dash callbacks, OCC kernel, STEP + receipt output" width="1000">
+</p>
+<p align="center"><i>Source of the diagram: <a href="docs/architecture.html">docs/architecture.html</a>.</i></p>
+One process, one port, no database. The kernel is stateless and CPU-only; the only state is a temp directory per session under jobs/<sid>/, holding the uploaded STEP, the session transform and the mesh metadata.
+Tessellation runs in a subprocess with a hard timeout, so a pathological BREP returns a readable error instead of freezing the server.
+🚀 Quick start
+Requirements
+Python 3.10+ (developed and verified on 3.15)
+Windows 10/11, Linux or macOS
+No conda, no pythonocc-core. The kernel is cascadio (OpenCASCADE 8.0 inside the wheel); STEP reading and re-writing is handled by the ISO-10303-21 code in aligner_core.py.
+git clone <https://github.com/><your-name>/web-step-aligner.git
+cd web-step-aligner
 python -m pip install -r requirements.txt
-```
-
-`requirements.txt`
-
-```txt
+​
+requirements.txt
 dash>=4.0
 plotly>=5.20
 flask>=3.0
 numpy>=1.24
-cascadio>=0.1.0      # OpenCASCADE 三角化 + 平面解析数据（wheel 内置 OCC）
-```
-
-### Run it
-
-```bash
+cascadio>=0.1.0      # OpenCASCADE tessellation + analytic face data (OCC bundled in the wheel)
+​
+Run it
 python app.py
-# Or double-click  start_8052.bat   (Automatically install dependencies + launch browser)
-```
-
-```
-  ▸ Web-STEP-Aligner  v0.1.0
+# Windows: or double-click start_8052.bat  (installs deps, then opens the browser)
+​
+  ▸ Web-STEP-Aligner  v0.2.0
   ▸ kernel   cascadio / OpenCASCADE
   ▸ workdir  ./jobs
-  ▸ ready    http://127.0.0.1:8052
-```
-
-Open **http://127.0.0.1:8052** → drop a `.step` / `.stp` → align → download.
-
-```bash
-# optional
+  ▸ ready    <http://127.0.0.1:8052>
+​
+Open http://127.0.0.1:8052 → drop a .step / .stp (or click one of the samples) → align → export.
+# optional environment overrides
 export ALIGNER_PORT=8052        # Windows: set ALIGNER_PORT=8052
 export ALIGNER_MAX_MB=200       # upload cap
-export ALIGNER_DEBUG=1          # Dash 调试模式
-```
-
-### Two Engines, One Geometry
-
-| Purpose | Implementation | Description |
-|---|---|---|
-| Preview / Measurement / Face Selection | `cascadio` → GLB (`include_brep=True`) | Uses OCC triangulation, supplemented with analytical parameters (e.g., plane/cylinder definitions) for each face—enabling face-normal extraction and surface fitting. |
-| Export | Pure Python-based STEP text generation | Reconstructs STEP entities (such as `CARTESIAN_POINT`, `DIRECTION`, `VECTOR` magnitudes, and various radius-based entities) from scratch. Transformations are **baked directly into the BREP**; this ensures no re-triangulation occurs and topology is preserved. |
-|
-
-> Pitfalls Encountered (Read before modifying code): The `AXIS2_PLACEMENT_3D` entity—contained within `*_SHAPE_REPRESENTATION` in STEP files—is interpreted by readers as a part-level coordinate system and applied as an additional transformation. It **must be preserved exactly as is** during export; otherwise, the model will undergo the transformation twice.
-
-### Self-Check
-
-```bash
-python tests/selftest.py     # Item 16: Bounding Box / Volume / Minimum Bounding Box / Export & Read-back / Scaling / Face Picking
-```
-
----
-
-## 🎛 Alignment modes
-
-| Mode | Input | Use when |
-|---|---|---|
-| `principal` | nothing | Fastest "just make it straight". PCA + minimal bbox. |
-| `face` | 2 face ids, or 1 face + target axis | A mating face must sit on XY. |
-| `points` | 3 picked vertices | Classic 3-2-1 datum alignment. |
-| `euler` | rx, ry, rz (deg), order | You already know the numbers. |
-| `center` | bbox / mass center | Re-origin only, keep orientation. |
-
-All modes compose with the scale field: `1.0` = keep, `25.4` = inch→mm, `0.001` = mm→m.
-
----
-
-## 🔌 HTTP API
-
-Everything the UI does is a plain endpoint — scriptable from CI, Blender, or your CAE pre-processor.
-
-| Method | Endpoint | Body / Query | Returns |
-|---|---|---|---|
-| `POST` | `/api/upload` | `multipart/form-data: file` | `{ sid, bbox, volume, faces }` |
-| `POST` | `/api/align` | `{ sid, mode, params }` | `{ bbox, volume, matrix }` |
-| `POST` | `/api/transform` | `{ sid, translate, rotate, scale }` | `{ bbox, volume, matrix }` |
-| `GET` | `/api/mesh` | `?sid&tol=` | tessellated preview (JSON) |
-| `GET` | `/api/export` | `?sid&ap=214` | `application/step` download |
-| `GET` | `/api/receipt` | `?sid` | transform receipt JSON |
-
-```bash
+export ALIGNER_DEBUG=1          # Dash debug mode
+​
+Two engines, one piece of geometry
+Purpose
+Implementation
+Notes
+Preview, measurement, face picking
+cascadio → GLB (include_brep=True)
+OCC tessellation plus per-face plane / cylinder parameters, used for face normals and face snapping.
+Export
+Pure-Python STEP re-write
+Rewrites CARTESIAN_POINT / DIRECTION / VECTOR magnitudes / radius entities one by one, so the transform is baked into the BREP — no re-tessellation, no lost topology.
+Known trap, read before touching the exporter: the AXIS2_PLACEMENT_3D inside each *_SHAPE_REPRESENTATION is interpreted by readers as the part frame and multiplied again. It must be preserved verbatim, otherwise the model gets transformed twice.
+Self-test
+python tests/selftest.py      # headless: bbox / volume / minimal bbox / export round-trip / scale / face picking
+​
+🎛 Alignment modes
+Mode
+Input
+Use when
+principal
+—
+Fastest "just make it straight": PCA + minimal bounding box, longest edge on X, thinnest face on XY.
+center
+bbox or mass
+Re-origin only, keep the current orientation.
+face
+from_face, to_face
+A mating face must sit flat on another plane.
+axis
+face, axis (X/Y/Z)
+Put one planar face perpendicular to a world axis.
+transform
+translate, rotate, scale, order
+You already know the numbers (the UI sliders use the same path).
+All modes compose with the scale field: 1.0 = keep, 25.4 = inch→mm, 0.001 = mm→m.
+🔌 HTTP API
+Everything the UI does is a plain endpoint — scriptable from CI, Blender or your CAE pre-processor.
+Method
+Endpoint
+Body / Query
+Returns
+GET
+/api/health
+—
+{ ok, version, kernel, workdir }
+POST
+/api/upload
+multipart/form-data: file
+{ sid, name, units, bbox, volume, faces, triangles }
+POST
+/api/align
+{ sid, mode, params }
+{ bbox, volume, matrix }
+POST
+/api/transform
+{ sid, translate, rotate, scale, order }
+{ bbox, volume, matrix }
+GET
+/api/mesh
+?sid=
+tessellated preview + face inventory (JSON)
+GET
+/api/export
+?sid=
+application/step download (<name>_aligned.step)
+GET
+/api/receipt
+?sid=
+transform receipt JSON
+GET
+/api/sessions
+—
+recent sessions in the work directory
 # align a part and grab the result, headless
-SID=$(curl -s -F file=@bracket.stp http://127.0.0.1:8052/api/upload | jq -r .sid)
-curl -s -X POST http://127.0.0.1:8052/api/align \
+SID=$(curl -s -F file=@samples/lbracket.stp <http://127.0.0.1:8052/api/upload> | jq -r .sid)
+curl -s -X POST <http://127.0.0.1:8052/api/align> \
      -H 'Content-Type: application/json' \
      -d "{\"sid\":\"$SID\",\"mode\":\"principal\"}" | jq
-curl -s "http://127.0.0.1:8052/api/export?sid=$SID&ap=214" -o bracket_aligned.step
-```
+curl -s "<http://127.0.0.1:8052/api/export?sid=$SID>" -o lbracket_aligned.step
+​
+⚠️ Known limits
+Assemblies: components are transformed as one rigid group. Per-component pose is on the roadmap.
+Huge files: over the 200 MB cap, or a part with a few hundred thousand facets, will make the browser preview unhappy long before the kernel complains. Raise ALIGNER_MAX_MB and use the API.
+Non-uniform scale is legal in STEP but some downstream CAM tools silently ignore it — prefer uniform.
+Units are your responsibility. STEP is unit-annotated and exporters lie; the receipt records exactly what scale was applied.
+Not a healing tool. Self-intersections and gaps survive the round trip untouched.
+🗺 Roadmap
 
----
+STEP read / write round trip with the transform baked into the geometry
 
-## ⚠️ Known limits (read before filing an issue)
+Auto-align: longest edge on X, thinnest face on XY, centre at the origin
 
-- **Assemblies:** components are transformed as one rigid group in `v0.1`. Per-component pose is on the roadmap.
-- **Huge files:** >200 MB or >200k faces will make the browser preview unhappy long before the kernel complains. Raise `ALIGNER_MAX_MB` and use the API.
-- **Non-uniform scale** on STEP is legal but some downstream CAM tools silently ignore it — prefer uniform.
-- **Units are your responsibility.** STEP is unit-annotated but exporters lie; the receipt records exactly what scale was applied.
-- **Not a healing tool.** Self-intersections and gaps survive the round trip untouched.
+Interactive Dash viewport with neon wireframe and live bounding box
 
----
+Translate / rotate sliders with ±90° / ±180° increments and reset
 
-## 🗺 Roadmap
+Transform receipt (.json sidecar) on every export
 
-- [x] STEP read / write round trip, transform baked into geometry
-- [x] Principal-axis + bbox-centering auto-align
-- [x] Interactive Dash viewport with neon wireframe
-- [x] Transform receipt sidecar
-- [x] Face List / Normal / Area (selection via drop-down + 3D highlighting)
-- [ ] Select faces directly within the 3D viewport
-- [ ] Per-component pose for assemblies
-- [ ] IGES + BREP import
-- [ ] Batch CLI: `aligner *.stp --mode principal -o out/`
-- [ ] Docker image `ghcr.io/<org>/web-step-aligner` with OCC bundled
-- [ ] STEP AP242 PMI preserved on export
+Face inventory: normals, areas, dropdown picking and 3D highlight
 
----
+EN / 中文 runtime switching, simple / expert layout
 
-## ❓ FAQ
+Pick faces directly in the 3D viewport
 
-**Why not just use FreeCAD?**
-Use it — if you want a 900 MB application to rotate a bracket. This is 40 MB of Python and opens in a tab.
+Per-component pose for assemblies
 
-**Is my model uploaded anywhere?**
-No. Everything runs in the process you started. No telemetry, no remote calls. Air-gap friendly.
+IGES + BREP import
 
-**Why does the preview look different from the export?**
-The preview is a tessellation (`BRepMesh`) with a tolerance; the export is exact BREP. Same pose, different fidelity.
+Batch CLI: aligner *.stp --mode principal -o out/
 
-**AP203 vs AP214 vs AP242?**
-AP203 = geometry only, AP214 = geometry + colour/layers, AP242 = + PMI. Default is AP214; switch with `?ap=203|214|242`.
+Docker image ghcr.io/<org>/web-step-aligner with OCC bundled
 
----
-
-## 🤝 Contributing
-
-```bash
-git clone … && cd web-step-aligner
-conda env create -f environment.yml
-pre-commit install
-pytest -q          # kernel tests run headless, no GUI needed
-```
-
+AP242 PMI preserved on export
+❓ FAQ
+Why not just use FreeCAD?
+Use it — if you want a 900 MB application to rotate a bracket. This is a few hundred lines of Python and it opens in a tab.
+Is my model uploaded anywhere?
+No. Everything runs in the process you started, on 127.0.0.1. No telemetry, no remote calls. Air-gap friendly.
+Why does the preview look different from the export?
+The preview is a tessellation with a tolerance; the export is exact BREP. Same pose, different fidelity.
+AP203 vs AP214 vs AP242?
+AP203 = geometry only, AP214 = geometry + colour/layers, AP242 = + PMI. The writer keeps whatever entity set the input carried; the reader accepts all three.
+Why do the translate sliders show percentages?
+Because a percentage of the bounding box is scale-independent: 50 % means "half the model length" whether the part is 40 mm or 4 m.
+🤝 Contributing
+git clone <https://github.com/><your-name>/web-step-aligner.git
+cd web-step-aligner
+python -m pip install -r requirements.txt
+python tests/selftest.py     # kernel tests run headless, no GUI needed
+​
 Issues with a minimal reproducer STEP file get fixed first. PRs that add a failing test alongside the fix get merged fastest.
-
-## 📄 License
-
-MIT © 2026 — do whatever you want, just don't blame us for your datum choices.
+📄 License
+MIT — see LICENSE. Do whatever you want with it, just don't blame us for your datum choices.
