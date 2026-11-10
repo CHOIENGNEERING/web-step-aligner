@@ -82,11 +82,8 @@ Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, s
 ## 🏗 Architecture
 
 <p align="center">
-  <img src="docs/architecture.png" alt="Architecture — browser, Dash callbacks, OCC kernel, STEP + receipt output" width="1000">
+  <img src="architecture.png" alt="Architecture" width="1000">
 </p>
-
-<p align="center"><i>Source of the diagram: <a href="docs/architecture.html">docs/architecture.html</a></i></p>
-
 ---
 
 ## 🚀 Quick start
