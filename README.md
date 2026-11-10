@@ -56,7 +56,9 @@ Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, s
 
 ---
 
+## 🔴 Demo
 
+![Demo](demo.gif)
 ---
 
 ## 🧩 Features
