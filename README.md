@@ -56,14 +56,15 @@ Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, s
 
 ---
 
-## ▶ Demo
+## 🔴 Demo
 
 <p align="center">
-https://github.com/user-attachments/assets/4d1e8750-b3e8-4d40-85dc-b9247cee1388
+  <video src="https://github.com/user-attachments/assets/4d1e8750-b3e8-4d40-85dc-b9247cee1388" controls autoplay loop muted width="100%"></video>
 </p>
 
 <p align="center"><i>Orbiting a part in the viewport: tessellated BREP, dashed bounding box, millimetre grid. (Full quality: <a href="docs/demo.mp4">docs/demo.mp4</a>)</i></p>
 
+---
 ---
 
 ## 🧩 Features
