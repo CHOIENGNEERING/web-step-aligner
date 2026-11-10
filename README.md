@@ -55,7 +55,7 @@ A vendor sends you a STEP file. It is beautiful. It is also:
 Web-STEP-Aligner is a one-page cure: drop the file in the browser, look at it, snap it to a canonical pose (or rotate it by hand), and download a clean STEP with the transform **baked into the geometry** — not wrapped around it.
 
 ---
-![Uploading Recording2026-11-10215733gif-ezgif.com-video-to-gif-converter.gif…]()
+
 
 ---
 
